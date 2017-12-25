@@ -61,34 +61,20 @@ void solve_naive() {
     } field_accumulator;
    
     for (int i = 0; i < m; ++i) {
-//        uint32_t d_current_ = d[i];
-//        uint32_t b_current_ = b[i];
-//        uint32_t cut = 0;
-//        std::cout << "day: " << d[i] << ", b: " << b[i] << " | before: { ";
-//        for (auto&& f : fields) {
-//            std::cout << f.b_last_ + f.a_ * (d[i] - f.d_last_) << " ";
-//        }
-//        std::cout << "} | after: {";
         field_compare.d_ = d[i];
         std::vector<field>::iterator ub = std::upper_bound(fields.begin(), fields.end(), b[i], field_compare);
         int cut = 0;
         if (ub != fields.end()) {
-//            std::cout << "b: " << b_current_ << ", ub: " << ub->a_ << std::endl;
             field_accumulator.d_ = d[i];
             field_accumulator.b_ = b[i];
             cut = std::accumulate(ub, fields.end(), uint64_t(0), field_accumulator);
         }
-//        for (auto&& f : fields) {
-//            std::cout << f.b_last_ + f.a_ * (d[i] - f.d_last_) << " ";
-//        }
-//        std::cout << "} cut: " << cut << std::endl;
-//        std::cout << cut << '\n';
     }
    
     std::cout << std::flush;
 }
 
-void solve_complicated() {
+void solve_stacked() {
     uint32_t n, m;
     std::cin >> n >> m;
     
@@ -100,17 +86,6 @@ void solve_complicated() {
 
     std::sort(a.begin(), a.end());
     
-//    auto sums = std::accumulate(a.rbegin() + 1, a.rend(), std::deque<uint64_t>{ a.back() }, [](std::deque<uint64_t>& deq, uint64_t x) {
-//        deq.push_front(x + deq.front());
-//        return deq;
-//    });
-
-//    std::vector<int> sums(n);
-//    sums[n-1] = a[n-1];
-//    for (int i = n-1; i >= 0; --i) {
-//        sums[i] = a[i] + sums[i+1];
-//    }
-
     struct range {
         std::vector<uint64_t>::const_iterator a_begin_;
         std::vector<uint64_t>::const_iterator a_end_;
@@ -123,16 +98,6 @@ void solve_complicated() {
    
     ranges.push_back({ a.begin(), a.end(), 0, 0, std::accumulate(a.begin(), a.end(), uint64_t(0)) });
    
-//    auto range_print = [](const range& r) {
-//        std::stringstream ss;
-//        ss << "range { ";
-//        for (auto iter = r.a_begin_; iter != r.a_end_; ++iter) {
-//            ss << *iter << " ";
-//        }
-//        ss << "} : " << r.a_sum_;
-//        return ss.str();
-//    };
-   
     auto height = [](uint64_t a, uint64_t d_last, uint64_t d_current, uint64_t b_last) {
         return b_last + a * (d_current - d_last);
     };
@@ -142,11 +107,6 @@ void solve_complicated() {
         return b_current < height(*back_iter, r.d_last_, d_current, r.b_last_);
     };
    
-//    auto range_need_split = [&](uint64_t d_current, uint64_t b_current, const range& r) {
-//        auto back_iter = r.a_end_ - 1;
-//        return height(*r.a_begin_, r.d_last_, d_current, r.b_last_) <= b_current && b_current < height(*back_iter, r.d_last_, d_current, r.b_last_);
-//    };
-    
     auto range_need_full_cut = [&](uint64_t d_current, uint64_t b_current, const range& r) {
        return b_current < height(*r.a_begin_, r.d_last_, d_current, r.b_last_);
     };
@@ -191,19 +151,103 @@ void solve_complicated() {
                 auto a_rest_sum = r_current.a_sum_ - a_split_sum;
                 a_sum_to_push += a_rest_sum;
                 
-//                auto a_split_end_index = a_split_end - a.begin();
-//                auto a_split_begin_index = r_current.a_begin_ - a.begin();
-//                a_sum_to_push = sums[a_split_end_index];
-//                auto a_split_sum = sums[a_split_begin_index] - a_sum_to_push;
-//                auto a_rest_sum = r_current.a_sum_ - a_split_sum;
-                
                 cut += range_cut(d_current, b_current, { a_split_end, r_current.a_end_, r_current.d_last_, r_current.b_last_, a_rest_sum });
                 ranges.push_back({ r_current.a_begin_, a_split_end, r_current.d_last_, r_current.b_last_, a_split_sum });
                 ranges.push_back({ a_split_end, a.end(), d_current, b_current, a_sum_to_push });
                 break;
-            } /*else {
-                std::cout << "Error!!!" << std::endl;
-            }*/
+            }
+        }
+                
+        std::cout << cut << '\n';
+    }
+}
+
+void solve_memoized() {
+    uint32_t n, m;
+    std::cin >> n >> m;
+    
+    std::vector<uint64_t> a(n);
+    for (uint32_t i = 0; i < n; ++i) std::cin >> a[i];
+
+    std::vector<uint64_t> d(m), b(m);
+    for (uint32_t i = 0; i < m; ++i) std::cin >> d[i] >> b[i];
+
+    std::sort(a.begin(), a.end());
+    
+    std::vector<uint64_t> sums = a;
+    uint64_t sum_acc = sums[n-1];
+    std::for_each(sums.rbegin() + 1, sums.rend(), [&](uint64_t& sum) {
+        sum += sum_acc;
+        sum_acc = sum;
+    });
+    
+    struct range {
+        std::vector<uint64_t>::iterator a_begin_;
+        std::vector<uint64_t>::iterator a_end_;
+        uint64_t d_last_;
+        uint64_t b_last_;
+        uint64_t a_sum_;
+    };
+
+    std::vector<range> ranges;
+   
+    ranges.push_back({ a.begin(), a.end(), 0, 0, sums[0] });
+   
+    auto height = [](uint64_t a, uint64_t d_last, uint64_t d_current, uint64_t b_last) {
+        return b_last + a * (d_current - d_last);
+    };
+    
+    auto range_need_any_cut = [&](uint64_t d_current, uint64_t b_current, const range& r) {
+        auto back_iter = r.a_end_ - 1;
+        return b_current < height(*back_iter, r.d_last_, d_current, r.b_last_);
+    };
+   
+    auto range_need_full_cut = [&](uint64_t d_current, uint64_t b_current, const range& r) {
+       return b_current < height(*r.a_begin_, r.d_last_, d_current, r.b_last_);
+    };
+   
+    auto find_split = [&](uint64_t d_current, uint64_t b_current, const range& r) {
+        return std::upper_bound(r.a_begin_, r.a_end_, b_current, [&](uint64_t x, uint64_t y) {
+            return x < height(y, r.d_last_, d_current, r.b_last_);
+        });
+    };
+   
+    auto range_cut = [&](uint64_t d_current, uint64_t b_current, const range& r) {
+        auto span = (uint64_t) (r.a_end_ - r.a_begin_);
+        return ((d_current - r.d_last_) * r.a_sum_) + ((r.b_last_ - b_current) * span);
+    };
+    
+    for (int j = 0; j < m; ++j) {
+        auto d_current = d[j];
+        auto b_current = b[j];
+        auto cut = (uint64_t) 0;
+        for (;;) {
+            range r_current = ranges.back();
+            if (!range_need_any_cut(d_current, b_current, r_current)) {
+                if (r_current.a_end_ != a.end()) {
+                    auto sum_to_push = sums[r_current.a_end_ - a.begin()];
+                    ranges.push_back({ r_current.a_end_, a.end(), d_current, b_current, sum_to_push });
+                }
+                break;
+            } else if (range_need_full_cut(d_current, b_current, r_current)) {
+                ranges.pop_back();
+                cut += range_cut(d_current, b_current, r_current);
+                if (ranges.empty()) {
+                    auto sum_to_push = sums[r_current.a_begin_ - a.begin()];
+                    ranges.push_back({r_current.a_begin_, a.end(), d_current, b_current, sum_to_push });
+                    break;
+                }
+            } else {
+                ranges.pop_back();
+                auto split_point = find_split(d_current, b_current, r_current);
+                auto sum_to_push = sums[split_point - a.begin()];
+                auto ante_split_sum = sums[r_current.a_begin_ - a.begin()] - sum_to_push;
+                auto post_split_sum = r_current.a_sum_ - ante_split_sum;
+                cut += range_cut(d_current, b_current, { split_point, r_current.a_end_, r_current.d_last_, r_current.b_last_, post_split_sum });
+                ranges.push_back({ r_current.a_begin_, split_point, r_current.d_last_, r_current.b_last_, ante_split_sum });
+                ranges.push_back({ split_point, a.end(), d_current, b_current, sum_to_push });
+                break;
+            }
         }
                 
         std::cout << cut << '\n';
@@ -227,14 +271,11 @@ int main(int argc, char**argv) {
     std::cout.rdbuf(out.rdbuf());
    
 //    solve_naive();
-    solve_complicated();
-
+//    solve_stacked();
+    solve_memoized();
+    
     std::cin.rdbuf(cinbuf); //reset to standard input again
     std::cout.rdbuf(coutbuf); //reset to standard output again
-
-//    for (auto&& elem : fields) {
-//        std::cout << "> a_:" << elem.a_ << ", d_last_:" << elem.d_last_ << ", b_last_:" << elem.b_last_ << std::endl;
-//    }
 
     return 0;
 }
