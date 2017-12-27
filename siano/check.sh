@@ -5,7 +5,8 @@ check_file() {
     local outfile=$(echo $infile | sed 's/in/out/g')
     local propfile=$(echo $outfile | sed 's/tests/tests\/proper/g')
     printf "%-32s" "Test for file $infile "
-    local TIME=$( { TIMEFORMAT='%3Rs'; time build/Release/src/siano $infile; } 2>&1 )
+#   local TIME=$( { TIMEFORMAT='%3Rs %M'; time build/Release/src/siano $infile; } 2>&1 )
+    local TIME=$( { /usr/bin/time -f "%e sec, %M Kbytes" ./build/Release/src/siano $infile; } 2>&1 )
     local DIFF=$(diff $outfile $propfile)
     if [ "$DIFF" != "" ]
     then
