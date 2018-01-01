@@ -46,6 +46,10 @@ Contributor(s):
       <df name="src">
         <in>main.cpp</in>
       </df>
+      <df name="tests">
+        <df name="proper">
+        </df>
+      </df>
     </df>
   </logicalFolder>
   <projectmakefile>build/Debug/Makefile</projectmakefile>
